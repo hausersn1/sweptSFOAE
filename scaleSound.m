@@ -1,3 +1,5 @@
+## From Hari Bharadwaj, SNAPLab
+
 function y = scaleSound(x)
 % Scales a matrix appropriately to between +/- 1 for
 % wavwrite() for example.
