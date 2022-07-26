@@ -1,21 +1,23 @@
+%% Analysis for swept tone SFOAEs
+
 % change these vars if needed
 windowdur = 0.04; % 40ms in paper
 offsetwin = 0.02; % 20ms in paper
-npoints = 32; 
-
-% range that can be tested
-first = ceil((windowdur/2)*stim.Fs); % sample
-last = numel(stim.t) - first - ceil(offsetwin*stim.Fs); % sample
+npoints = 128; 
 
 % setting stuff from stim
 phiProbe_inst = stim.phiProbe_inst; 
 fmin = stim.fmin; 
 fmax = stim.fmax; 
 t = stim.t; 
-    
+
+% range that can be tested
+first = ceil((windowdur/2)*stim.Fs); % sample
+last = numel(stim.t) - first - ceil(offsetwin*stim.Fs); % sample
+  
 % set SFOAE
 SFOAEtrials = stim.ProbeBuffs + stim.SuppBuffs - stim.BothBuffs; 
-% SFOAEtrials = stim.ProbeBuffs;
+
 % Artifact rejection and set mean SFOAE and NOISE
 energy = squeeze(sum(SFOAEtrials.^2, 2));
 good = energy < median(energy) + 2*mad(energy);
@@ -37,12 +39,6 @@ else % downsweep
     testfreq = linspace(freq_inst(1,first), freq_inst(1,last), npoints); 
     t_freq = (fmax-testfreq)/abs(stim.speed); 
 end
-
-% % set freq we're testing and the timepoints when they happen.  
-% freq_inst = f1 + stim.speed*t; 
-% %npoints = ceil(abs((freq_inst(first) - freq_inst(last))) / (windowdur* abs(stim.speed))); 
-% testfreq = linspace(freq_inst(1,first), freq_inst(1,last), npoints); 
-% t_freq = (testfreq-f1)/stim.speed; 
 
 % Set empty matricies for next steps
 maxoffset = ceil(stim.Fs * offsetwin);

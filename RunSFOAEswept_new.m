@@ -51,6 +51,7 @@ try
     ProbeBuffs = zeros(stim.Averages, numel(stim.t));
     SuppBuffs = zeros(stim.Averages, numel(stim.t));
     BothBuffs = zeros(stim.Averages, numel(stim.t));
+    flip = 1; 
     
     for k = 1:(stim.ThrowAway + stim.Averages)
         delayComp = 1; % Always
@@ -70,7 +71,11 @@ try
         dropProbe = 120;
         dropSupp = stim.drop_Supp;
         buffdata = zeros(2, numel(stim.t));
-        buffdata(2, :) = stim.ySupp;
+        
+        % Flip suppressor every other
+        flip = -1 * flip;
+        buffdata(2, :) = flip .* stim.ySupp;
+        
         vins = playCapture2(buffdata, card, 1, 0,...
             dropProbe, dropSupp, delayComp);
         if k > stim.ThrowAway
