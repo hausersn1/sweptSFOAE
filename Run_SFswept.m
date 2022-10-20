@@ -1,6 +1,6 @@
 try
     % Initialize ER-10X  (Also needed for ER-10C for calibrator)
-    initializeER10X;
+    initializeER10X_300Hz_Highpass;
     
     % Initializing TDT
     % Specify path to cardAPI here
@@ -10,7 +10,7 @@ try
     
     
     % Get stimulus structure
-    stim = makeSFOAEstim_new;
+    stim = Make_SFswept;
     
     % Get subject and ear info
     subj = input('Please subject ID:', 's');
@@ -48,17 +48,21 @@ try
     
     %% Present SFOAE stimuli one trial at a time
     % Make arrays to store measured mic outputs
-    ProbeBuffs = zeros(stim.Averages, numel(stim.t));
-    SuppBuffs = zeros(stim.Averages, numel(stim.t));
-    BothBuffs = zeros(stim.Averages, numel(stim.t));
-    flip = 1; 
+    ProbeBuffs = zeros(stim.Averages, numel(stim.yProbe));
+    SuppBuffs = zeros(stim.Averages, numel(stim.yProbe));
+    BothBuffs = zeros(stim.Averages, numel(stim.yProbe));
+    flip = -1; 
     
     for k = 1:(stim.ThrowAway + stim.Averages)
+        
+        % alternate phase of the suppressor 
+        flip = flip .* -1; 
+        
         delayComp = 1; % Always
         % Do probe only
         dropSupp = 120;
         dropProbe = stim.drop_Probe;
-        buffdata = zeros(2, numel(stim.t));
+        buffdata = zeros(2, numel(stim.yProbe));
         buffdata(1, :) = stim.yProbe;
         vins = playCapture2(buffdata, card, 1, 0,...
             dropProbe, dropSupp, delayComp);
@@ -66,35 +70,37 @@ try
         if k > stim.ThrowAway
             ProbeBuffs(k - stim.ThrowAway,  :) = vins;
         end
+        WaitSecs(0.25); 
         
         % Do suppressor only
         dropProbe = 120;
         dropSupp = stim.drop_Supp;
-        buffdata = zeros(2, numel(stim.t));
-        
-        % Flip suppressor every other
-        flip = -1 * flip;
-        buffdata(2, :) = flip .* stim.ySupp;
-        
+        buffdata = zeros(2, numel(stim.ySupp));
+        buffdata(2, :) = flip.*stim.ySupp;
         vins = playCapture2(buffdata, card, 1, 0,...
             dropProbe, dropSupp, delayComp);
         if k > stim.ThrowAway
             SuppBuffs(k - stim.ThrowAway,  :) = vins;
         end
         
+        WaitSecs(0.25);
+        
         % Do both
         dropProbe = stim.drop_Probe;
         dropSupp = stim.drop_Supp;
-        buffdata = zeros(2, numel(stim.t));
+        buffdata = zeros(2, numel(stim.yProbe));
         buffdata(1, :) = stim.yProbe;
-        buffdata(2, :) = stim.ySupp;
+        buffdata(2, :) = flip.*stim.ySupp;
         vins = playCapture2(buffdata, card, 1, 0,...
             dropProbe, dropSupp, delayComp);
         if k > stim.ThrowAway
             BothBuffs(k - stim.ThrowAway,  :) = vins;
         end
+        WaitSecs(0.25);
+        
         fprintf(1, 'Done with trial %d / %d\n', k,...
             (stim.ThrowAway + stim.Averages));
+        
     end
     stim.ProbeBuffs = ProbeBuffs;
     stim.SuppBuffs = SuppBuffs;
@@ -128,5 +134,6 @@ catch me
     closeCard(card);
     rmpath(pcard);
     rethrow(me);
+
 end
 

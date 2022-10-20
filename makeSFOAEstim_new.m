@@ -7,12 +7,13 @@ if ~exist('rawstim', 'var')
     stim.cf = 1000;
     stim.fmin = stim.cf/sqrt(2); % 1/2 octave below
     stim.speed = -2000; %Hz per second
-    stim.diff = 50; % Hz (Fprobe - 50 = Fsupp; Probe is higher)
+    stim.diff = 47; % Hz (Fprobe - 50 = Fsupp; Probe is higher)
     stim.Fs = 48828.125;
     stim.fmax = stim.cf*sqrt(2); % 1/2 octave above
 else
     stim = rawstim;
 end
+
 stim.drop_Probe = 50;
 stim.drop_Supp = 30;
 stim.ThrowAway = 2;
