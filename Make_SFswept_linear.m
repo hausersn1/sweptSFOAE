@@ -8,12 +8,12 @@ stim.fmin = 500; %stim.cf/sqrt(2); % 1/2 octave below
 stim.speed = -2000; %Hz per second
 stim.diff = 50; % Hz (Fprobe - 50 = Fsupp; Probe is higher)
 stim.Fs = 48828.125;
-stim.fmax = 4500; %stim.cf*sqrt(2); % 1/2 octave above 
+stim.fmax = 16000; %stim.cf*sqrt(2); % 1/2 octave above 
 
 stim.drop_Probe = 60;
 stim.drop_Supp = 40;
 stim.ThrowAway = 2;
-stim.Averages = 64;
+stim.Averages = 100;
 buffdur = 0.1; %seconds; for either side of sweep 
 stim.buffdur = buffdur; 
 

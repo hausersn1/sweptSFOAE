@@ -1,6 +1,8 @@
 try
     % Initialize ER-10X  (Also needed for ER-10C for calibrator)
-    initializeER10X_300Hz_Highpass;
+    
+    initializeER10X;
+    % initializeER10X_300Hz_Highpass;
     
     % Initializing TDT
     % Specify path to cardAPI here
@@ -8,10 +10,15 @@ try
     addpath(pcard);
     card = initializeCard;
     
+    % Get stimulus structure; Change to _linear for linear sweep
+    stim = Make_SFswept_log;
     
-    % Get stimulus structure
-    stim = Make_SFswept;
-    
+    if abs(stim.speed) < 20
+        sweeptype = 'log'; 
+    else 
+        sweeptype = 'linear';
+    end
+        
     % Get subject and ear info
     subj = input('Please subject ID:', 's');
     earflag = 1;
@@ -35,6 +42,7 @@ try
             fprintf(1, '\nSubject pressed a button...\nStarting Stimulation...\n');
         otherwise
             fprintf(1, '\nStarting Stimulation...\n');
+            fprintf(1, '\nApproximate Duration: %d minutes\n', (stim.t(end).*3.*(stim.ThrowAway + stim.Averages)./60)); 
     end
     
     % Make directory to save results if it doesn't already exist
@@ -119,15 +127,13 @@ try
     click.date = datetag;
     datetag(strfind(datetag,' ')) = '_';
     datetag(strfind(datetag,':')) = '_';
-    fname = strcat(respDir,'SFOAE_linear_',subj,earname,'_',datetag, '.mat');
+    fname = strcat(respDir,'SFOAE_',sweeptype,'_',subj,earname,'_',datetag, '.mat');
     save(fname,'stim');
     
     %% Close TDT, ER-10X connections etc. and cleanup
-    
     closeER10X;
     closeCard(card);
     rmpath(pcard);
-    
     
 catch me
     closeER10X;

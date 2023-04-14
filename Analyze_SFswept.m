@@ -1,6 +1,5 @@
 
-% should put in something to make...
-% this a function and save the data!!!
+% should put in something to make this a function and save the data!!!
 % change these vars if needed
 windowdur = 0.060; % 40ms in paper
 offsetwin = 0.020; % 20ms in paper
@@ -61,8 +60,14 @@ noise = [pos_noise; neg_noise ];
 NOISE = mean(noise,1); 
 
 % set freq we're testing and the timepoints when they happen.    
-testfreq = linspace(f1, f2, npoints); 
-t_freq = (testfreq-f1)/stim.speed + stim.buffdur; 
+
+if stim.speed < 20
+    testfreq = 2 .^ linspace(log2(f1), log2(f2), npoints);
+    t_freq = log2(testfreq/f1)/stim.speed + stim.buffdur;
+else
+    testfreq = linspace(f1, f2, npoints);
+    t_freq = (testfreq-f1)/stim.speed + stim.buffdur;
+end
 
 % Set empty matricies for next steps
 maxoffset = ceil(stim.Fs * offsetwin);
@@ -124,7 +129,6 @@ x = (f_tau(2:end) + f_tau(1:end-1))/2;
 % Plot figures
 figure(1); 
 subplot(3, 1, 1)
-hold on;
 title('Amplitude')
 semilogx(testfreq, db(oae), testfreq, db(nf), '--', 'linew', 1); 
 legend('OAE', 'Noise'); 
