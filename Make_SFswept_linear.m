@@ -1,4 +1,4 @@
-function stim = Make_SFswept()
+function stim = Make_SFswept_linear()
 
 % rawstim (structure) should contain fields fmin, fmax, speed, Fs, ratio,
 % VtoPforH
