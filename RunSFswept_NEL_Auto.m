@@ -3,44 +3,49 @@
 % change to be log sweep instead of linear 3/14/23
 
 %% Set up
+% Get stimulus structure
+stim = makeSFOAEstim_new;
+addpath('../FPLclick/')
+
 subj = input('Please subject ID:', 's'); % Create subject
+stim.subj = subj;
 
 date = datetime('now');
 date.Format = 'yyyy_MM_dd';
 datetag = string(date);
 stim.date = datetag;
 
-% Get CalibFile from NEL DATA storage
-ExpDataDir = 'C:\NEL\ExpData\';
-cd(ExpDataDir);
-findDir = dir(sprintf('*%s*%s*', datetag, subj));
-calibflag = 1;
-while calibflag == 1
-    calibNum = input('What NEL calib #? ', 's');
-    if isempty(findDir)
-        fprintf(2,'You need to run a NEL calibration first!\n');
-        return
-    elseif length(findDir)~=1
-        fprintf(2,'Multiple Directories. I am confused. \n')
-        return
-    else
-        datadir = [ExpDataDir findDir.name];
-        cd(datadir);
-        calib_file = dir(sprintf('coef_000%s_calib.mat', calibNum));
-        if isempty(calib_file)
-            if calibNum == '999'
-                noCalibFlag = 1;
-                calibflag = 0;
-            else
-                fprintf(2, 'No calib of that number. Try again! \n')
-            end
-        else
-            load(calib_file.name, 'b');
-            stim.b = b;
-            calibflag = 0;
-        end
-    end
-end
+% % Get CalibFile from NEL DATA storage
+% ExpDataDir = 'C:\NEL\ExpData\';
+% cd(ExpDataDir);
+% findDir = dir(sprintf('*%s*%s*', datetag, subj));
+% calibflag = 1;
+% while calibflag == 1
+%     calibNum = input('What NEL calib #? ', 's');
+%     if isempty(findDir)
+%         fprintf(2,'You need to run a NEL calibration first!\n');
+%         return
+%     elseif length(findDir)~=1
+%         fprintf(2,'Multiple Directories. I am confused. \n')
+%         return
+%     else
+%         datadir = [ExpDataDir findDir.name];
+%         cd(datadir);
+%         calib_file = dir(sprintf('coef_000%s_calib.mat', calibNum));
+%         if isempty(calib_file)
+%             if calibNum == '999'
+%                 noCalibFlag = 1;
+%                 calibflag = 0;
+%             else
+%                 fprintf(2, 'No calib of that number. Try again! \n')
+%             end
+%         else
+%             load(calib_file.name, 'b');
+%             stim.b = b;
+%             calibflag = 0;
+%         end
+%     end
+% end
 
 
 earflag = 1;
@@ -50,10 +55,23 @@ while earflag == 1
         case {'L', 'R', 'l', 'r', 'Left', 'Right', 'left', 'right', 'LEFT', 'RIGHT'}
             earname = strcat(ear, 'Ear');
             earflag = 0;
+            stim.ear = ear;
         otherwise
             fprintf(2, 'Unrecognized ear type! Try again!');
     end
 end
+
+
+
+% Get FPL CalibFile
+calibflag = 1;
+noCalibFlag = 0;
+while calibflag == 1
+    stim.b.Ph1 = FPL_inv_calib_fir_coeff(subj, ear, '1'); 
+    stim.b.Ph2 = FPL_inv_calib_fir_coeff(subj, ear, '2');  
+    calibflag = 0; 
+end
+
 
 % Make directory to save results
 mainDir = 'C:\Users\Heinz Lab - NEL2\Desktop\OAEs\SFOAE\swept_wCalib\';
@@ -80,10 +98,7 @@ switch button
         fprintf(1, '\nStarting Stimulation...\n');
 end
 
-% Get stimulus structure
-stim = makeSFOAEstim_new;
-stim.subj = subj;
-stim.ear = ear;
+
 
 windowdur = 0.5;
 SNRcriterion = 6;
@@ -139,9 +154,7 @@ while doneWithTrials == 0
     buffdata(1, :) = stim.yProbe;
     
     % filter data
-    if noCalibFlag ~= 1
-        buffdata = filter(b, 1, buffdata, [], 1);
-    end
+    buffdata = filter(stim.b.Ph1, 1, buffdata, [], 1);
     
     % Load the 2ch variable data into the RZ6:
     invoke(RZ, 'WriteTagVEX', 'datainL', 0, 'F32', buffdata(1, :));
@@ -185,9 +198,8 @@ while doneWithTrials == 0
     buffdata(2, :) = flip.*stim.ySupp;
     
     % filter data
-    if noCalibFlag ~= 1
-        buffdata = filter(b, 1, buffdata, [], 1);
-    end
+    buffdata = filter(stim.b.Ph2, 1, buffdata, [], 1);
+
     % Load the 2ch variable data into the RZ6:
     invoke(RZ, 'WriteTagVEX', 'datainL', 0, 'F32', buffdata(1, :));
     invoke(RZ, 'WriteTagVEX', 'datainR', 0, 'F32', buffdata(2, :));
@@ -231,9 +243,8 @@ while doneWithTrials == 0
     buffdata(2, :) = flip.*stim.ySupp;
     
     % filter data
-    if noCalibFlag ~= 1
-        buffdata = filter(b, 1, buffdata, [], 1);
-    end
+    buffdata(1,:) = filter(stim.b.Ph1, 1, buffdata(1,:), [], 1);
+    buffdata(2,:) = filter(stim.b.Ph2, 1, buffdata(2,:), [], 1);
     
     % Load the 2ch variable data into the RZ6:
     invoke(RZ, 'WriteTagVEX', 'datainL', 0, 'F32', buffdata(1, :));
@@ -361,4 +372,5 @@ save(fname,'stim');
 fprintf(1, 'Saved!');
 %% Close TDT, ER-10X connections etc. and cleanup
 close_play_circuit(f1RZ, RZ);
+rmpath('../FPLclick/'); 
 
