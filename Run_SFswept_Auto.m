@@ -163,16 +163,23 @@ try
             
             model_oae = [cos(phiProbe_inst(win)) .* taper;
                 -sin(phiProbe_inst(win)) .* taper];
-            
-            model_noise = ...
-                [cos(1.1*phiProbe_inst(win)) .* taper;
-                -sin(1.1*phiProbe_inst(win)) .* taper;
-                cos(1.12*phiProbe_inst(win)) .* taper;
-                -sin(1.12*phiProbe_inst(win)) .* taper;
-                cos(1.14*phiProbe_inst(win)) .* taper;
-                -sin(1.14*phiProbe_inst(win)) .* taper;
-                cos(1.16*phiProbe_inst(win)) .* taper;
-                -sin(1.16*phiProbe_inst(win)) .* taper];
+
+
+        if stim.speed > 0
+            nearfreqs = [1.10, 1.12, 1.14, 1.16];
+        else
+            nearfreqs = [.90, .88, .86, .84];
+        end
+        
+        model_noise = ...
+            [cos(nearfreqs(1)*phiProbe_inst(win)) .* taper;
+            -sin(nearfreqs(1)*phiProbe_inst(win)) .* taper;
+            cos(nearfreqs(2)*phiProbe_inst(win)) .* taper;
+            -sin(nearfreqs(2)*phiProbe_inst(win)) .* taper;
+            cos(nearfreqs(3)*phiProbe_inst(win)) .* taper;
+            -sin(nearfreqs(3)*phiProbe_inst(win)) .* taper;
+            cos(nearfreqs(4)*phiProbe_inst(win)) .* taper;
+            -sin(nearfreqs(4)*phiProbe_inst(win)) .* taper];
             
             coeffs_temp(m,:) = model_oae' \ oae_win';
             coeffs_noise(m,:) = model_noise' \ oae_win';
