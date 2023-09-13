@@ -2,7 +2,7 @@ try
     % Initialize ER-10X  (Also needed for ER-10C for calibrator)
     
     initializeER10X;
-    % initializeER10X_300Hz_Highpass;
+    %initializeER10X_300Hz_Highpass;
     
     % Initializing TDT
     % Specify path to cardAPI here
@@ -56,7 +56,7 @@ try
     
     %% Present SFOAE stimuli one trial at a time
     
-    windowdur = 0.5;
+    windowdur = 0.15;
     SNRcriterion = stim.SNRcriterion;
     maxTrials = stim.maxTrials;
     minTrials = stim.minTrials;
@@ -78,7 +78,7 @@ try
     flip = -1;
     
     % variable for live analysis
-    k = 0;
+    k = 1;
     t = stim.t;
     testfreq = [.75, 1, 1.5, 2, 3, 4, 6, 8, 12].* 1000;
     
@@ -98,7 +98,7 @@ try
     
     
     while doneWithTrials == 0
-        k = k + 1;
+        
         % alternate phase of the suppressor
         flip = flip .* -1;
         
@@ -146,84 +146,119 @@ try
             (stim.ThrowAway + stim.Averages));
         
         % test OAE
-        OAEtrials = ProbeBuffs(1:k-stim.ThrowAway, :) + ...
-            SuppBuffs(1:k-stim.ThrowAway, :) - ...
-            BothBuffs(1:k-stim.ThrowAway, :);
-        OAE = median(OAEtrials,1);
-        coeffs_temp = zeros(length(testfreq), 2);
-        coeffs_noise = zeros(length(testfreq), 8);
-        for m = 1:length(testfreq)
-            win = find( (t > (t_freq(m)-windowdur/2)) & ...
-                (t < (t_freq(m)+windowdur/2)));
-            taper = hanning(numel(win))';
+        if k > stim.ThrowAway
             
-            oae_win = OAE(win) .* taper;
+            OAEtrials = ProbeBuffs(1:k-stim.ThrowAway, :) + ...
+                SuppBuffs(1:k-stim.ThrowAway, :) - ...
+                BothBuffs(1:k-stim.ThrowAway, :);
+            OAE = median(OAEtrials,1);
+            coeffs_temp = zeros(length(testfreq), 2);
+            coeffs_noise = zeros(length(testfreq), 8);
+            for m = 1:length(testfreq)
+                win = find( (t > (t_freq(m)-windowdur/2)) & ...
+                    (t < (t_freq(m)+windowdur/2)));
+                taper = hanning(numel(win))';
+                
+                oae_win = OAE(win) .* taper;
+                
+                phiProbe_inst = 2*pi*stim.phiProbe_inst;
+                
+                model_oae = [cos(phiProbe_inst(win)) .* taper;
+                    -sin(phiProbe_inst(win)) .* taper];
+                
+                model_noise = ...
+                    [cos(1.1*phiProbe_inst(win)) .* taper;
+                    -sin(1.1*phiProbe_inst(win)) .* taper;
+                    cos(1.12*phiProbe_inst(win)) .* taper;
+                    -sin(1.12*phiProbe_inst(win)) .* taper;
+                    cos(1.14*phiProbe_inst(win)) .* taper;
+                    -sin(1.14*phiProbe_inst(win)) .* taper;
+                    cos(1.16*phiProbe_inst(win)) .* taper;
+                    -sin(1.16*phiProbe_inst(win)) .* taper];
+                
+                coeffs_temp(m,:) = model_oae' \ oae_win';
+                coeffs_noise(m,:) = model_noise' \ oae_win';
+            end
             
-            phiProbe_inst = 2*pi*stim.phiProbe_inst;
+            % for noise
+            noise2 = zeros(length(testfreq),4);
+            for i = 1:2:8
+                noise2(:,ceil(i/2)) = abs(complex(coeffs_noise(:,i), coeffs_noise(:,i+1)));
+            end
+            noise = mean(noise2, 2);
             
-            model_oae = [cos(phiProbe_inst(win)) .* taper;
-                -sin(phiProbe_inst(win)) .* taper];
-
-
-        if stim.speed < 0
-            nearfreqs = [1.10, 1.12, 1.14, 1.16];
-        else
-            nearfreqs = [.90, .88, .86, .84];
-        end
-        
-        model_noise = ...
-            [cos(nearfreqs(1)*phiProbe_inst(win)) .* taper;
-            -sin(nearfreqs(1)*phiProbe_inst(win)) .* taper;
-            cos(nearfreqs(2)*phiProbe_inst(win)) .* taper;
-            -sin(nearfreqs(2)*phiProbe_inst(win)) .* taper;
-            cos(nearfreqs(3)*phiProbe_inst(win)) .* taper;
-            -sin(nearfreqs(3)*phiProbe_inst(win)) .* taper;
-            cos(nearfreqs(4)*phiProbe_inst(win)) .* taper;
-            -sin(nearfreqs(4)*phiProbe_inst(win)) .* taper];
+            oae = abs(complex(coeffs_temp(:,1), coeffs_temp(:,2)));
             
-            coeffs_temp(m,:) = model_oae' \ oae_win';
-            coeffs_noise(m,:) = model_noise' \ oae_win';
-        end
-        
-        % for noise
-        noise2 = zeros(length(testfreq),4);
-        for i = 1:2:8
-            noise2(:,ceil(i/2)) = abs(complex(coeffs_noise(:,i), coeffs_noise(:,i+1)));
-        end
-        noise = mean(noise2, 2);
-        
-        oae = abs(complex(coeffs_temp(:,1), coeffs_temp(:,2)));
-        
-        SNR_temp = db(oae) - db(noise);
-        
-        mult = stim.VoltageToPascal .* stim.PascalToLinearSPL;
-        hold off;
-        plot(testfreq./1000,db(oae.*mult), 'o', 'linew', 2);
-        hold on;
-        plot(testfreq./1000,db(noise.*mult), 'x', 'linew', 2);
-        title('DPOAE');
-        legend('DPOAE', 'NOISE');
-        xlabel('Frequency (Hz)')
-        ylabel('Median Amplitude dB')
-        set(gca, 'XScale', 'log', 'FontSize', 14)
-        xticks([.5, 1, 2, 4, 8, 16])
-        xlim([0.5, 16])
-        
-        % if SNR is good enough and we've hit the minimum number of
-        % trials, then stop.
-        if SNR_temp(1:8) > SNRcriterion
-            if k - stim.ThrowAway >= minTrials
+            SNR_temp = db(oae) - db(noise);
+            
+%             for x = 1:trials
+%                 SFOAE = SFOAEtrials(x, :);
+%                 fprintf(1, 'Checking trial %d / %d for artifact\n', x, trials);
+%                 
+%                 for k = 1:npoints
+%                     win = find( (t > (t_freq(k) - windowdur/2)) & ...
+%                         (t < (t_freq(k) + windowdur/2)));
+%                     taper = hanning(numel(win))';
+%                     model_sf = [cos(phiProbe_inst(win)) .* taper;
+%                         -sin(phiProbe_inst(win)) .* taper];
+%                     resp = SFOAE(win) .* taper;
+%                     coeffs(k, 1:2) = model_sf' \ resp';
+%                 end
+%                 a_temp(x,:) = coeffs(:, 1);
+%                 b_temp(x,:) = coeffs(:, 2);
+%             end
+%             
+%             oae = abs(complex(a_temp, b_temp));
+%             median_oae = median(oae);
+%             std_oae = std(oae);
+%             resp_AR = SFOAEtrials;
+%             for j = 1:trials
+%                 for k = 1:npoints
+%                     if oae(j,k) > median_oae(1,k) + 4*std_oae(1,k)
+%                         win = find( (t > (t_freq(k) - windowdur.*.1)) & ...
+%                             (t < (t_freq(k) + windowdur.*.1)));
+%                         resp_AR(j,win) = NaN;
+%                     end
+%                 end
+%             end
+            
+            
+            mult = stim.VoltageToPascal .* stim.PascalToLinearSPL;
+            hold off;
+            plot(testfreq./1000,db(oae.*mult), 'o', 'linew', 2);
+            hold on;
+            plot(testfreq./1000,db(noise.*mult), 'x', 'linew', 2);
+            title('SFOAE');
+            legend('SFOAE', 'NOISE');
+            xlabel('Frequency (Hz)')
+            ylabel('Median Amplitude dB')
+            set(gca, 'XScale', 'log', 'FontSize', 14)
+%             xticks([.5, 1, 2, 4, 8, 16])
+            xlim([0.5, 16])
+            ylim([-30, 30]);
+            yticks((-30:6:30))
+            grid on;
+            
+            % if SNR is good enough and we've hit the minimum number of
+            % trials, then stop.
+            if SNR_temp(2:8) > SNRcriterion
+                if k-stim.ThrowAway >= minTrials
+                    doneWithTrials = 1;
+                end
+            elseif k == maxTrials
                 doneWithTrials = 1;
             end
-        elseif k == maxTrials
-            doneWithTrials = 1;
+            
         end
+        drawnow;
+        % next trial
+        k = k + 1;
         
     end
     
-    stim.ProbeBuffs = ProbeBuffs(1:k-stim.ThrowAway,:);
-    stim.SuppBuffs = SuppBuffs(1:k-stim.ThrowAway,:);
-    stim.BothBuffs = BothBuffs(1:k-stim.ThrowAway,:);
+    stim.ProbeBuffs = ProbeBuffs(1:k-1-stim.ThrowAway,:);
+    stim.SuppBuffs = SuppBuffs(1:k-1-stim.ThrowAway,:);
+    stim.BothBuffs = BothBuffs(1:k-1-stim.ThrowAway,:);
     
     %% Save Measurements
     datetag = datestr(clock);

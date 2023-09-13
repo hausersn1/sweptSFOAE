@@ -1,8 +1,9 @@
 try
     % Initialize ER-10X  (Also needed for ER-10C for calibrator)
+    clear 
     
-    initializeER10X;
-    % initializeER10X_300Hz_Highpass;
+     initializeER10X;
+     % initializeER10X_300Hz_Highpass;
     
     % Initializing TDT
     % Specify path to cardAPI here

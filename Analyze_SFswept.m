@@ -1,9 +1,9 @@
 
 % should put in something to make this a function and save the data!!!
 % change these vars if needed
-windowdur = 0.060; % 40ms in paper
-offsetwin = 0.020; % 20ms in paper
-npoints = 256; 
+windowdur = 0.040; % 40ms in paper
+offsetwin = 0.00; % 20ms in paper
+npoints = 512; 
 hpfilter = 1; 
 
 % setting stuff from stim
@@ -19,7 +19,8 @@ else
 end 
     
 % set SFOAE
-SFOAEtrials = stim.ProbeBuffs + stim.SuppBuffs - stim.BothBuffs; 
+%SFOAEtrials = stim.ProbeBuffs + stim.SuppBuffs - stim.BothBuffs; 
+SFOAEtrials = stim.ProbeBuffs ; 
 
 % HP filter 
 if hpfilter == 1
@@ -116,7 +117,7 @@ b = coeffs(:, 2);
 a_n = coeffs_n(:, 1); 
 b_n = coeffs_n(:, 2); 
 t_freq_tau = t_freq' - tau; 
-f_tau = ((t_freq_tau - stim.buffdur).*stim.speed)+f1; 
+f_tau = f1 * (2.^( (t_freq_tau - stim.buffdur) * stim.speed)); 
 phi = tau .* f_tau; % cycles
 phasor = exp(-1j * phi * 2 *pi);
 oae = abs(complex(a, b) .* phasor) .* stim.VoltageToPascal .* stim.PascalToLinearSPL; 
