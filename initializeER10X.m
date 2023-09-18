@@ -16,7 +16,7 @@ if strcmp(err, 'ER10X_ERR_OK')
 else
     error('Something wrong! Could not connect to ER10X!');
 end
-probeIndex = 0;
+probeIndex = 1; % 0=A/1=B (changed to B 9/15/23)
 gain = 30; % dB
 temperatureF = 0; % Turn off heater
 er10x_set_gain(ER10XHandle,probeIndex,gain);

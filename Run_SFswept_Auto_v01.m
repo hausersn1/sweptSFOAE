@@ -13,45 +13,36 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% Data Storage
-
-% Change to 0 if not running on SNAPlab computer at Purdue
-Purdue_SNAP = 0;
-
 % Measure-General info
-info.name = 'SFOAEswept';
+info.measure = 'SFOAEswept';
 info.version = 'Auto_v01';
 
-
 % Visit info
-if Purdue_SNAP == 1
-    % Visit info
-    if exist('C:\Experiments\Sam\current_visit.mat','file')
-        load('C:\Experiments\Sam\current_visit.mat', 'visit')
-        ask = questdlg(sprintf('Is this subject %s?', visit.subj.ID), 'Check Subject', 'Yes', 'No', 'No');
-    else
-        ask = 'No';
-    end
-    
-    if strcmp(ask, 'No')
-        cd ..
-        startVisit
-        cd(info.name)
-    end
-    
-    subj = visit.subj;
-    info.room = visit.room;
-    info.univ = visit.univ;
-    info.researcher = visit.researcher;
-    
+if exist('C:\Experiments\Sam\current_visit.mat','file')
+    load('C:\Experiments\Sam\current_visit.mat', 'visit')
+    ask = questdlg(sprintf('Is this subject %s?', visit.subj.ID), ...
+        'Check Subject', 'Yes', 'No', 'No');
 else
-    subj = input('Subject ID:', 's');
-    info.room = 'Room Number';
-    info.univ = 'Pitt';
-    info.researcher = input('Initials of tester','s');
+    ask = 'No';
 end
 
+if strcmp(ask, 'No')
+    cd ..
+    startVisit
+    cd(info.measure)
+end
+
+subj = visit.subj;
+info.room = visit.room;
+info.univ = visit.univ;
+info.researcher = visit.researcher;
+
 % Get ear info
-subj.ear = questdlg('Which ear?', 'Ear', 'L', 'R', 'R');
+ear = questdlg('Which ear?', 'Ear', 'L', 'R', 'R');
+
+%if sum(strcmp(ear, [{'R'}, {'L'}]))
+%else quit
+subj.ear = ear; 
 
 % Get date/time
 datetag = datestr(clock);
@@ -67,16 +58,17 @@ if(~exist(respDir,'dir'))
     mkdir(respDir);
 end
 
-fname = strcat(respDir, info.name, '_', ...
+fname = strcat(respDir, info.measure, '_', ...
     subj.ID, '_', subj.ear, '_', datetag, '.mat');
 
 %% Run Test
 tic;
+
 try
-    % Initialize ER-10X  (Also needed for ER-10C for calibrator)
     
+    % Initialize ER-10X  (Also needed for ER-10C for calibrator)
     initializeER10X;
-    %initializeER10X_300Hz_Highpass;
+    % initializeER10X_300Hz_Highpass;
     
     % Initializing TDT and specify path to cardAPI here
     pcard = genpath('C:\Experiments\cardAPI\');
@@ -94,10 +86,13 @@ try
     
     phiProbe_inst = stim.phiProbe_inst*2*pi;
     t = stim.t;
-    testfreq = stim.testfreq;
-    npoints = length(testfreq);
+    npoints = stim.npoints; 
     nearfreqs = stim.nearfreqs;
     VtoSPL = stim.VoltageToPascal .* stim.PascalToLinearSPL;
+    
+    edges = 2 .^ linspace(log2(stim.fmin), log2(stim.fmax), 21);
+    bandEdges = edges(2:2:end-1);
+    centerFreqs = edges(3:2:end-2);
     
     if stim.speed < 0
         f_start = stim.fmax;
@@ -107,6 +102,8 @@ try
         f_end = stim.fmax;
     end
     
+    testfreq = 2 .^ linspace(log2(f_start), log2(f_end), npoints); 
+     
     if strcmp(stim.scale, 'log')
         t_freq = log2(testfreq/f_start)/stim.speed + stim.buffdur;
     else
@@ -142,7 +139,7 @@ try
             ProbeBuffs(k_kept,  :) = vins;
         end
         
-        WaitSecs(0.25);
+        WaitSecs(0.1);
         
         % Do suppressor only
         dropProbe = 120;
@@ -155,7 +152,7 @@ try
             SuppBuffs(k_kept,  :) = vins;
         end
         
-        WaitSecs(0.25);
+        WaitSecs(0.1);
         
         % Do both
         dropProbe = stim.drop_Probe;
@@ -169,22 +166,21 @@ try
             BothBuffs(k_kept,  :) = vins;
         end
         
-        WaitSecs(0.25);
+        WaitSecs(0.1);
         
         if k > stim.ThrowAway
             % Set empty matricies for next steps
             coeffs_resp = zeros(npoints, 2);
             coeffs_noise = zeros(npoints, 8);
-            a_temp = zeros(1, npoints);
-            b_temp = zeros(1, npoints);
             
             for p = 1:npoints
                 win = find( (t > (t_freq(p) - windowdur/2)) & ...
                     (t < (t_freq(p) + windowdur/2)));
                 taper = hanning(numel(win))';
                 
-                probe_resp = ProbeBuffs(k_kept,:) + SuppBuffs(k_kept,:) - BothBuffs(k_kept,:);
-                resp_trial = probe_resp(win).* taper;
+                a_plus_b_minus_ab = ProbeBuffs(k_kept,:) ...
+                    + SuppBuffs(k_kept,:) - BothBuffs(k_kept,:);
+                resp_trial = a_plus_b_minus_ab(win).* taper; % just curr trial
                 
                 model_probe = [cos(phiProbe_inst(win)) .* taper;
                     -sin(phiProbe_inst(win)) .* taper];
@@ -201,32 +197,53 @@ try
                 coeffs_resp(p,:) = model_probe' \ resp_trial';
                 coeffs_noise(p,:) = model_noise' \ resp_trial';
             end
-            
-            a_resp(k_kept,:) = coeffs_resp(:, 1);
-            b_resp(k_kept,:) = coeffs_resp(:, 2);
-            a_n(k_kept,:) = coeffs_noise(:, 1);
-            b_n(k_kept,:) = coeffs_noise(:, 2);
-            
+
             % calculate amplitudes
-            oae_temp = abs(complex(a_resp, b_resp));
-            median_oae = median(oae_temp,1);
+            oae_trials(k_kept,:) = abs(complex(coeffs_resp(:, 1),  coeffs_resp(:, 2)));
+            median_oae = median(oae_trials,1);
+            sfoae_full = db(median_oae.*VtoSPL); 
             
-            noise = zeros(length(testfreq),4);
+            noise_trial = zeros(npoints,4);
             for i = 1:2:8
-                noise(:,ceil(i/2)) = abs(complex(coeffs_noise(:,i), coeffs_noise(:,i+1)));
+                noise_trial(:,ceil(i/2)) = complex(coeffs_noise(:,i), coeffs_noise(:,i+1));
             end
-            noise = mean(noise, 2);
+            noise_trials(k_kept,:) = abs(mean(noise_trial, 2));
+            median_noise = median(noise_trials,1); 
+            nf_full = db(median_noise.*VtoSPL); 
             
+            % Get summary points (weighted by SNR)
+            sfoae = zeros(length(centerFreqs),1);
+            nf = zeros(length(centerFreqs),1);
+            sfoae_w = zeros(length(centerFreqs),1);
+            nf_w = zeros(length(centerFreqs),1);
+            
+                        % weighted average around 9 center frequencies
+            for z = 1:length(centerFreqs)
+                band = find( testfreq >= bandEdges(z) & testfreq < bandEdges(z+1));
+          
+                % TO DO: NF from which SNR was calculated included median of 7 points
+                % nearest the target frequency.
+                SNR = sfoae_full(band) - nf_full(band);
+                weight = (10.^(SNR./10)).^2;
+                
+                sfoae(z, 1) = mean(sfoae_full(band));
+                nf(z,1) = mean(nf_full(band));
+                
+                sfoae_w(z,1) = sum(weight.*sfoae_full(band))/sum(weight);
+                nf_w(z,1) = sum(weight.*nf_full(band))/sum(weight);
+                
+            end
+                        
             % median SNR
-            SNR_temp = db(median_oae)' - db(noise);
+            SNR_temp = sfoae_w - nf_w;
             
             noisy_trials = 0;
             % artifact check
             if k_kept >= stim.minTrials
-                std_oae = std(oae_temp,1);
+                std_oae = std(oae_trials,1);
                 for r = 1:k_kept
                     for q = 1:npoints
-                        if oae_temp(r,q) > median_oae(1,q) + 4*std_oae(1,q)
+                        if oae_trials(r,q) > median_oae(1,q) + 3*std_oae(1,q)
                             noisy_trials = noisy_trials+1;
                             break;
                         end
@@ -245,27 +262,27 @@ try
             end
             
             pass = (SNR_temp>=SNRcriterion);
-            oae_pass = db(median_oae.*VtoSPL);
-            oae_fail = db(median_oae.*VtoSPL);
+            oae_pass = sfoae_w;
+            oae_fail = sfoae_w;
             oae_pass(~pass) = NaN;
             oae_fail(pass) = NaN;
             
             % Plot amplitudes from live analysis
             hold off;
-            plot(testfreq./1000,oae_pass, 'o', 'linew', 2, 'color', [0 0.4470 0.7410]);
+            plot(centerFreqs./1000,oae_pass, 'o', 'linew', 2, 'color', [0 0.4470 0.7410]);
             hold on;
-            plot(testfreq./1000,oae_fail, 'o', 'linew', 2, 'color', 'k'),
-            plot(testfreq./1000,db(noise.*VtoSPL), 'x', 'linew', 2, 'color', [0.6350 0.0780 0.1840]);
+            plot(centerFreqs/1000,oae_fail, 'o', 'linew', 2, 'color', 'k'),
+            plot(centerFreqs./1000,nf_w, 'x', 'linew', 2, 'color', [0.6350 0.0780 0.1840]);
             hold off;
-            legend('SFOAE', '', 'NOISE', 'location', 'southwest');
+            legend('SFOAE', '', 'NOISE', 'location', 'northeast');
             title('SFOAE')
             xlabel('Frequency (Hz)')
             ylabel('Median Amplitude (dB SPL)')
             set(gca, 'XScale', 'log', 'FontSize', 14)
             xlim([0.5, 16]);
             xticks([.5, 1, 2, 4, 8, 16]);
-            ylim([-30, 30]);
-            yticks((-30:6:30))
+            ylim([-45, 45]);
+            yticks((-45:15:45))
             grid on;
             drawnow;
             
@@ -281,7 +298,7 @@ try
     data.resp.ProbeBuffs = ProbeBuffs(1:k_kept,:);
     data.resp.SuppBuffs = SuppBuffs(1:k_kept,:);
     data.resp.BothBuffs = BothBuffs(1:k_kept,:);
-    data.info.testDur_s = toc;
+    data.resp.testDur_s = toc;
     
     save(fname,'data');
     

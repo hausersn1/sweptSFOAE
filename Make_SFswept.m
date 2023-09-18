@@ -9,11 +9,11 @@ stim.diff = 50; % Hz (Fprobe - 50 = Fsupp; Probe is higher)
 stim.buffdur = 0.25; %seconds; for either side of sweep 
 stim.Fs = 48828.125;
 
-stim.drop_Probe = 75; %54; % 71; % for 40dB probe, was 60
-stim.drop_Supp = 55; %34; % 51 for 60dB suppressor, was 40
+stim.drop_Probe = 54; % 75; % for 40dB probe, was 60
+stim.drop_Supp = 34; % 55 for 60dB suppressor, was 40
 
 % Trial Parameters
-stim.ThrowAway = 1;
+stim.ThrowAway = 0;
 stim.SNRcriterion = 6; 
 stim.minTrials = 12; 
 stim.maxTrials = 50; 
@@ -28,8 +28,8 @@ stim.VoltageToPascal = 1 / (stim.DR_onesided * stim.mic_gain * stim.mic_sens);
 stim.PascalToLinearSPL = 1 /  stim.P_ref;
 
 %% For live analysis
-stim.windowdur = 0.25;
-stim.testfreq = [.75, 1, 1.5, 2, 3, 4, 6, 8, 12].* 1000;
+stim.windowdur = 0.06;
+stim.npoints = 128; 
 
 %% Create the stimulus
 buffdur = stim.buffdur; 
